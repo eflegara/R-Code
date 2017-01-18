@@ -1,0 +1,141 @@
+---
+title: "2013 Bohol Earthquake"
+author: "Erika Fille T. Legara"
+date: "17/01/2017"
+output: 
+    html_document:
+        fig_width: 7
+        fig_height: 7
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Background
+In this `R` markdown document, we learn the basics of plotting points on a map using `maptools`---an `R` module that provides a set of tools pertinent to reading and handling spatial objects. 
+
+```{r loadpackages, message=FALSE, warning=FALSE, results='hide'}
+library(maptools)
+```
+
+This code was originally written back in October 2013 [to visualize][1] the disaster event,  an earthquake, that hit the province of Bohol, Philippines. 
+
+***
+#### The Datasets
+We use two datasets in this notebook: 
+
+1. **The Map**. 
+
+    Format: `.rds` 
+    
+    Source: [GADM][2] (Global Administrative Areas website). 
+
+2. **The Earthquake Dataset**. The earthquake dataset was downloaded on 18 October 2013.
+
+    Format: `.csv` 
+    
+    Source [USGS][3] (U.S. Geological Survey) 
+
+[1]: https://erikafille.ph/2013/10/19/did-you-tweet-about-the-bohol-earthquake/ "to visualize"
+[2]: http://gadm.org/about "GADM"
+[3]: https://www.usgs.gov/ "USGS"
+
+***
+#### Data Exploration
+
+##### The Map
+We first load the `rds` map file `PHL_adm2.rds`. The number `2` in the `PHL_adm2.rds` indicates the administrative level of the dataset where `0` is the country level, `1` provincial level, `2` city level, and `3` for barangay level. Let's load the dataset and store it in the variable `gadm`.
+
+```{r loaddata, cache=TRUE, warning=FALSE, message=FALSE}
+gadm<-readRDS("../PH_GIS_Data/PHL_adm2.rds")
+```
+Let's have a look at what's inside the gadm data. 
+
+```{r}
+names(gadm)
+```
+We can see that there are 15 columns/features in the dataset including `OBJECT_ID`, `NAME_0`, `NAME_1`, and `NAME_2`.
+
+Below, we print out the first 10 entries under `NAME_0`, which provides the country. As expected, all entries give "Philippines".
+```{r echo=TRUE}
+print(gadm$NAME_0[0:10])
+```
+
+To list the different provinces for each entry, we look into the variable, `NAME_1`.
+Below is a list of the first 10 entries under `NAME_1`.
+```{r echo=FALSE}
+print(gadm$NAME_1[0:10])
+```
+
+Finally, below is a list of the first 10 entries under `NAME_2`. These are the cities.
+```{r echo=FALSE}
+print(gadm$NAME_2[0:10])
+```
+
+If we plot the whole of `PHL_adm2.rds`, we will see the entire map of the Philippines partitioned into cities. However, if we only want to focus on specific province or city, we can filter the entire dataset. For the purpose of this work, we introduce a variable named `bohol` (for Bohol province) and filter in all information where `NAME_1=="Bohol"`.
+
+```{r}
+bohol<-gadm[gadm$NAME_1=="Bohol",]
+plot(bohol)
+```
+
+Similarly, if we want to focus on individual cities, like Catigbian, Bohol and Loon, Bohol, we use the variable `NAME_2` as filter.
+
+```{r}
+catigbian<-bohol[bohol$NAME_2=="Catigbian",]
+loon<-bohol[bohol$NAME_2=="Loon",]
+plot(catigbian)
+```
+
+##### The Earthquake Data
+Now, let's have a look at the earthquake dataset that was downloaded last 18 October 2013 from the USGS earthquake database,
+
+```{r loadequake}
+quake<-read.csv('equake3.csv')
+head(quake)
+```
+
+Since, we are only interested in the earthquake event that happened in the Philippines from October 15-17, 2013, we can filter the dataset accordingly.
+
+```{r}
+quake<-quake[quake$country=="Philippines",]
+quake$date <- as.Date(quake$date, format="%d/%m/%y")
+quake <- quake[quake$date >= as.Date("2013-10-15") & quake$date <= as.Date("2013-10-17"),]
+head(quake)
+```
+
+***
+
+#### Plotting
+Finally, we plot these earthquake datapoints onto the map of Bohol. Notice below that we're converting the date column of the data frame `quake` to `factor` class (from `date` class). It's for ease of plotting since we want to color the datapoints according to the day they occurred.
+
+```{r}
+quake$date <- as.factor(quake$date)
+```
+Let's also define a variable `malakas` to extract the earthquake entrywith the maximum/greatest magnitude from our filtered data frame.
+
+```{r}
+malakas = quake[quake$mag==max(quake$mag),]
+print(malakas)
+```
+According to USGS records, the strongest magnitude (7.1) hit location `{lat: 9.8662, lon: 124.0115}`, which is `2km NE of Catigbian`, on 15 October 2013. In the plot below, we highlight the city of Catigbian (yellow). 
+
+```{r}
+plot(bohol, axes=T, border='gray50', bg='gray80', col='black', lwd=1.3,
+     xlim=c(123.68114,124.64547), ylim=c(9.48583, 10.4))
+par(new=TRUE)
+plot(catigbian, col="yellow", xlim=c(123.68114,124.64547), ylim=c(9.48583, 10.4),
+     bg="transparent")
+colors <- c("salmon", "deepskyblue2", "darkseagreen")
+points(quake$longitude,quake$latitude, col=colors[quake$date], pch=1, cex = sqrt(quake$mag))
+points(quake$longitude,quake$latitude, col=colors[quake$date], pch=16, cex = sqrt(quake$mag/pi))
+points(malakas$longitude,malakas$latitude, col='red', pch=16, cex = sqrt(malakas$mag/2))
+points(malakas$longitude,malakas$latitude, col='red', pch=1, cex = sqrt(malakas$mag))
+points(malakas$longitude,malakas$latitude, col='red', pch=1, cex = 1.2*sqrt(malakas$mag))
+legend(124.5,10.36, legend = levels(quake$date), col=colors, cex = 0.9, pch = 16, bty = "n")
+
+```
+
+### End
